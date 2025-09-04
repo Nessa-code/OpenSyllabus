@@ -138,8 +138,8 @@
         remix-count: u0,
         view-count: u0,
         favorite-count: u0,
-        created-at: block-height,
-        updated-at: block-height,
+        created-at: stacks-block-height,
+        updated-at: stacks-block-height,
         is-premium: is-premium,
         price: price,
         category-id: category-id,
@@ -161,7 +161,7 @@
     
     (map-set syllabus-votes 
       { syllabus-id: syllabus-id, voter: voter } 
-      { vote-type: upvote, voted-at: block-height })
+      { vote-type: upvote, voted-at: stacks-block-height })
     
     (let ((syllabus (unwrap-panic (map-get? syllabi { syllabus-id: syllabus-id }))))
       (if upvote
@@ -192,7 +192,7 @@
     
     (map-set syllabus-favorites 
       { syllabus-id: syllabus-id, user: user } 
-      { favorited-at: block-height })
+      { favorited-at: stacks-block-height })
     
     (let ((syllabus (unwrap-panic (map-get? syllabi { syllabus-id: syllabus-id }))))
       (map-set syllabi
@@ -211,7 +211,7 @@
     
     (map-set user-follows 
       { follower: follower, following: user-to-follow } 
-      { followed-at: block-height })
+      { followed-at: stacks-block-height })
     
     (let ((current-credits (default-to 
                            { syllabi-created: u0, total-upvotes: u0, total-downvotes: u0, 
@@ -234,7 +234,7 @@
     
     (map-set syllabus-reviews
       { syllabus-id: syllabus-id, reviewer: reviewer }
-      { rating: rating, comment: comment, reviewed-at: block-height }
+      { rating: rating, comment: comment, reviewed-at: stacks-block-height }
     )
     (ok true)
   )
@@ -256,7 +256,7 @@
       
       (map-set syllabus-purchases
         { syllabus-id: syllabus-id, buyer: buyer }
-        { purchased-at: block-height, price-paid: price }
+        { purchased-at: stacks-block-height, price-paid: price }
       )
       
       (update-creator-earnings creator creator-earnings)
@@ -276,7 +276,7 @@
         description: description,
         syllabus-count: u0,
         created-by: tx-sender,
-        created-at: block-height
+        created-at: stacks-block-height
       }
     )
     (var-set next-category-id (+ category-id u1))
@@ -303,7 +303,7 @@
     
     (map-set remixes
       { original-id: original-id, remix-id: new-id }
-      { remixer: tx-sender, created-at: block-height }
+      { remixer: tx-sender, created-at: stacks-block-height }
     )
     (map-set syllabi
       { syllabus-id: original-id }
