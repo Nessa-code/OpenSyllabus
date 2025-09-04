@@ -194,3 +194,58 @@
     (ok true)
   )
 )
+
+(define-public (favorite-syllabus (syllabus-id uint))
+  (let ((user tx-sender))
+    (asserts! (is-none (map-get? syllabus-favorites { syllabus-id: syllabus-id, user: user })) err-already-favorited)
+    (asserts! (is-some (map-get? syllabi { syllabus-id: syllabus-id })) err-not-found)
+    
+    (map-set syllabus-favorites 
+      { syllabus-id: syllabus-id, user: user } 
+      { favorited-at: block-height })
+    
+    (let ((syllabus (unwrap-panic (map-get? syllabi { syllabus-id: syllabus-id }))))
+      (map-set syllabi
+        { syllabus-id: syllabus-id }
+        (merge syllabus { favorite-count: (+ (get favorite-count syllabus) u1) })
+      )
+    )
+    (ok true)
+  )
+)
+
+(define-public (follow-user (user-to-follow principal))
+  (let ((follower tx-sender))
+    (asserts! (not (is-eq follower user-to-follow)) err-cannot-self-follow)
+    (asserts! (is-none (map-get? user-follows { follower: follower, following: user-to-follow })) err-already-following)
+    
+    (map-set user-follows 
+      { follower: follower, following: user-to-follow } 
+      { followed-at: block-height })
+    
+    (let ((current-credits (default-to 
+                           { syllabi-created: u0, total-upvotes: u0, total-downvotes: u0, 
+                             reputation: u0, followers: u0, total-earnings: u0 } 
+                           (map-get? creator-credits { creator: user-to-follow }))))
+      (map-set creator-credits
+        { creator: user-to-follow }
+        (merge current-credits { followers: (+ (get followers current-credits) u1) })
+      )
+    )
+    (check-and-award-achievements user-to-follow)
+    (ok true)
+  )
+)
+
+(define-public (add-review (syllabus-id uint) (rating uint) (comment (string-ascii 500)))
+  (let ((reviewer tx-sender))
+    (asserts! (is-some (map-get? syllabi { syllabus-id: syllabus-id })) err-not-found)
+    (asserts! (and (>= rating u1) (<= rating u5)) err-invalid-input)
+    
+    (map-set syllabus-reviews
+      { syllabus-id: syllabus-id, reviewer: reviewer }
+      { rating: rating, comment: comment, reviewed-at: block-height }
+    )
+    (ok true)
+  )
+)
