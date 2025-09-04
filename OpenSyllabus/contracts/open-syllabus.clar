@@ -323,3 +323,129 @@
     (ok new-id)
   )
 )
+
+;; Private helper functions
+(define-private (update-creator-credits (creator principal))
+  (let ((current-credits (default-to 
+                         { syllabi-created: u0, total-upvotes: u0, total-downvotes: u0, 
+                           reputation: u0, followers: u0, total-earnings: u0 } 
+                         (map-get? creator-credits { creator: creator }))))
+    (map-set creator-credits
+      { creator: creator }
+      (merge current-credits { syllabi-created: (+ (get syllabi-created current-credits) u1) })
+    )
+  )
+)
+
+(define-private (update-creator-reputation (creator principal) (positive bool))
+  (let ((current-credits (default-to 
+                         { syllabi-created: u0, total-upvotes: u0, total-downvotes: u0, 
+                           reputation: u0, followers: u0, total-earnings: u0 } 
+                         (map-get? creator-credits { creator: creator }))))
+    (if positive
+      (map-set creator-credits
+        { creator: creator }
+        (merge current-credits 
+               { total-upvotes: (+ (get total-upvotes current-credits) u1),
+                 reputation: (+ (get reputation current-credits) u2) })
+      )
+      (map-set creator-credits
+        { creator: creator }
+        (merge current-credits 
+               { total-downvotes: (+ (get total-downvotes current-credits) u1),
+                 reputation: (if (> (get reputation current-credits) u0) 
+                           (- (get reputation current-credits) u1) 
+                           u0) })
+      )
+    )
+  )
+)
+
+(define-private (update-creator-earnings (creator principal) (amount uint))
+  (let ((current-credits (default-to 
+                         { syllabi-created: u0, total-upvotes: u0, total-downvotes: u0, 
+                           reputation: u0, followers: u0, total-earnings: u0 } 
+                         (map-get? creator-credits { creator: creator }))))
+    (map-set creator-credits
+      { creator: creator }
+      (merge current-credits { total-earnings: (+ (get total-earnings current-credits) amount) })
+    )
+  )
+)
+
+(define-private (increment-category-count (category-id uint))
+  (let ((category (map-get? categories { category-id: category-id })))
+    (match category
+      some-category (map-set categories
+                     { category-id: category-id }
+                     (merge some-category { syllabus-count: (+ (get syllabus-count some-category) u1) }))
+      none
+    )
+  )
+)
+
+(define-private (check-and-award-achievements (user principal))
+  (let ((credits (default-to 
+                 { syllabi-created: u0, total-upvotes: u0, total-downvotes: u0, 
+                   reputation: u0, followers: u0, total-earnings: u0 } 
+                 (map-get? creator-credits { creator: user })))
+        (current-achievements (default-to 
+                              { first-syllabus: false, popular-creator: false, 
+                                prolific-creator: false, community-favorite: false, remix-master: false }
+                              (map-get? user-achievements { user: user }))))
+    
+    (map-set user-achievements
+      { user: user }
+      {
+        first-syllabus: (or (get first-syllabus current-achievements) (>= (get syllabi-created credits) u1)),
+        popular-creator: (or (get popular-creator current-achievements) (>= (get total-upvotes credits) u100)),
+        prolific-creator: (or (get prolific-creator current-achievements) (>= (get syllabi-created credits) u10)),
+        community-favorite: (or (get community-favorite current-achievements) (>= (get followers credits) u50)),
+        remix-master: (or (get remix-master current-achievements) (>= (count-user-remixes user) u5))
+      }
+    )
+  )
+)
+
+(define-private (count-user-remixes (user principal))
+  ;; This is a simplified count - in practice you'd need a more complex implementation
+  u0
+)
+
+;; Read-only functions
+(define-read-only (get-syllabus (syllabus-id uint))
+  (map-get? syllabi { syllabus-id: syllabus-id })
+)
+
+(define-read-only (get-creator-credits (creator principal))
+  (map-get? creator-credits { creator: creator })
+)
+
+(define-read-only (has-voted (syllabus-id uint) (voter principal))
+  (is-some (map-get? syllabus-votes { syllabus-id: syllabus-id, voter: voter }))
+)
+
+(define-read-only (get-user-reputation (user principal))
+  (default-to u0 
+              (get reputation 
+                   (default-to 
+                    { syllabi-created: u0, total-upvotes: u0, total-downvotes: u0, 
+                      reputation: u0, followers: u0, total-earnings: u0 } 
+                    (map-get? creator-credits { creator: user }))))
+)
+
+(define-read-only (get-category (category-id uint))
+  (map-get? categories { category-id: category-id })
+)
+
+(define-read-only (is-following (follower principal) (following principal))
+  (is-some (map-get? user-follows { follower: follower, following: following }))
+)
+
+(define-read-only (get-user-achievements (user principal))
+  (map-get? user-achievements { user: user })
+)
+
+(define-read-only (has-purchased (syllabus-id uint) (user principal))
+  (is-some (map-get? syllabus-purchases { syllabus-id: syllabus-id, buyer: user }))
+)
