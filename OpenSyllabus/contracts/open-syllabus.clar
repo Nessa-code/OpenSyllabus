@@ -249,3 +249,77 @@
     (ok true)
   )
 )
+
+(define-public (purchase-syllabus (syllabus-id uint))
+  (let ((buyer tx-sender)
+        (syllabus (unwrap! (map-get? syllabi { syllabus-id: syllabus-id }) err-not-found)))
+    (asserts! (get is-premium syllabus) err-invalid-input)
+    (asserts! (is-none (map-get? syllabus-purchases { syllabus-id: syllabus-id, buyer: buyer })) err-already-voted)
+    
+    (let ((price (get price syllabus))
+          (creator (get creator syllabus))
+          (platform-cut (/ (* price (var-get platform-fee)) u100))
+          (creator-earnings (- price platform-cut)))
+      
+      (try! (stx-transfer? price buyer contract-owner))
+      (try! (stx-transfer? creator-earnings contract-owner creator))
+      
+      (map-set syllabus-purchases
+        { syllabus-id: syllabus-id, buyer: buyer }
+        { purchased-at: block-height, price-paid: price }
+      )
+      
+      (update-creator-earnings creator creator-earnings)
+      (ok true)
+    )
+  )
+)
+
+(define-public (create-category (name (string-ascii 50)) (description (string-ascii 200)))
+  (let ((category-id (var-get next-category-id)))
+    (asserts! (> (len name) u0) err-invalid-input)
+    
+    (map-set categories
+      { category-id: category-id }
+      {
+        name: name,
+        description: description,
+        syllabus-count: u0,
+        created-by: tx-sender,
+        created-at: block-height
+      }
+    )
+    (var-set next-category-id (+ category-id u1))
+    (ok category-id)
+  )
+)
+
+(define-public (remix-syllabus (original-id uint) (title (string-ascii 100)) (content-hash (string-ascii 64)))
+  (let (
+    (original (unwrap! (map-get? syllabi { syllabus-id: original-id }) err-not-found))
+    (new-id (var-get next-syllabus-id))
+  )
+    (try! (publish-syllabus 
+           title 
+           (get subject original) 
+           content-hash
+           (get description original)
+           (get difficulty-level original)
+           (get estimated-hours original)
+           false ;; remixes are free
+           u0
+           (get category-id original)
+           (get tags original)))
+    
+    (map-set remixes
+      { original-id: original-id, remix-id: new-id }
+      { remixer: tx-sender, created-at: block-height }
+    )
+    (map-set syllabi
+      { syllabus-id: original-id }
+      (merge original { remix-count: (+ (get remix-count original) u1) })
+    )
+    (check-and-award-achievements tx-sender)
+    (ok new-id)
+  )
+)
