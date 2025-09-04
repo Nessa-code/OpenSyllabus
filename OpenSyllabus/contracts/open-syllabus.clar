@@ -105,3 +105,92 @@
     remix-master: bool ;; 5+ remixes created
   }
 )
+
+(define-public (publish-syllabus 
+    (title (string-ascii 100)) 
+    (subject (string-ascii 50)) 
+    (content-hash (string-ascii 64))
+    (description (string-ascii 500))
+    (difficulty-level uint)
+    (estimated-hours uint)
+    (is-premium bool)
+    (price uint)
+    (category-id uint)
+    (tags (list 5 (string-ascii 20))))
+  (let ((syllabus-id (var-get next-syllabus-id))
+        (creator-rep (get-user-reputation tx-sender)))
+    (asserts! (>= creator-rep (var-get min-reputation-to-create)) err-insufficient-reputation)
+    (asserts! (<= difficulty-level u5) err-invalid-input)
+    (asserts! (> (len title) u0) err-invalid-input)
+    
+    (map-set syllabi
+      { syllabus-id: syllabus-id }
+      {
+        creator: tx-sender,
+        title: title,
+        subject: subject,
+        content-hash: content-hash,
+        description: description,
+        difficulty-level: difficulty-level,
+        estimated-hours: estimated-hours,
+        upvotes: u0,
+        downvotes: u0,
+        remix-count: u0,
+        view-count: u0,
+        favorite-count: u0,
+        created-at: block-height,
+        updated-at: block-height,
+        is-premium: is-premium,
+        price: price,
+        category-id: category-id,
+        tags: tags
+      }
+    )
+    (var-set next-syllabus-id (+ syllabus-id u1))
+    (update-creator-credits tx-sender)
+    (increment-category-count category-id)
+    (check-and-award-achievements tx-sender)
+    (ok syllabus-id)
+  )
+)
+
+(define-public (vote-syllabus (syllabus-id uint) (upvote bool))
+  (let ((voter tx-sender))
+    (asserts! (is-none (map-get? syllabus-votes { syllabus-id: syllabus-id, voter: voter })) err-already-voted)
+    (asserts! (is-some (map-get? syllabi { syllabus-id: syllabus-id })) err-not-found)
+    
+    (map-set syllabus-votes 
+      { syllabus-id: syllabus-id, voter: voter } 
+      { vote-type: upvote, voted-at: block-height })
+    
+    (let ((syllabus (unwrap-panic (map-get? syllabi { syllabus-id: syllabus-id }))))
+      (if upvote
+        (begin
+          (map-set syllabi
+            { syllabus-id: syllabus-id }
+            (merge syllabus { upvotes: (+ (get upvotes syllabus) u1) })
+          )
+          (update-creator-reputation (get creator syllabus) true)
+        )
+        (begin
+          (map-set syllabi
+            { syllabus-id: syllabus-id }
+            (merge syllabus { downvotes: (+ (get downvotes syllabus) u1) })
+          )
+          (update-creator-reputation (get creator syllabus) false)
+        )
+      )
+    )
+    (ok true)
+  )
+)
+
+(define-public (increment-view-count (syllabus-id uint))
+  (let ((syllabus (unwrap! (map-get? syllabi { syllabus-id: syllabus-id }) err-not-found)))
+    (map-set syllabi
+      { syllabus-id: syllabus-id }
+      (merge syllabus { view-count: (+ (get view-count syllabus) u1) })
+    )
+    (ok true)
+  )
+)
