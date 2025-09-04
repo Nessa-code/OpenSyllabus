@@ -379,7 +379,7 @@
       some-category (map-set categories
                      { category-id: category-id }
                      (merge some-category { syllabus-count: (+ (get syllabus-count some-category) u1) }))
-      none
+      false
     )
   )
 )
