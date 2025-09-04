@@ -185,16 +185,6 @@
   )
 )
 
-(define-public (increment-view-count (syllabus-id uint))
-  (let ((syllabus (unwrap! (map-get? syllabi { syllabus-id: syllabus-id }) err-not-found)))
-    (map-set syllabi
-      { syllabus-id: syllabus-id }
-      (merge syllabus { view-count: (+ (get view-count syllabus) u1) })
-    )
-    (ok true)
-  )
-)
-
 (define-public (favorite-syllabus (syllabus-id uint))
   (let ((user tx-sender))
     (asserts! (is-none (map-get? syllabus-favorites { syllabus-id: syllabus-id, user: user })) err-already-favorited)
@@ -324,6 +314,16 @@
   )
 )
 
+(define-public (increment-view-count (syllabus-id uint))
+  (let ((syllabus (unwrap! (map-get? syllabi { syllabus-id: syllabus-id }) err-not-found)))
+    (map-set syllabi
+      { syllabus-id: syllabus-id }
+      (merge syllabus { view-count: (+ (get view-count syllabus) u1) })
+    )
+    (ok true)
+  )
+)
+
 ;; Private helper functions
 (define-private (update-creator-credits (creator principal))
   (let ((current-credits (default-to 
@@ -426,12 +426,11 @@
 )
 
 (define-read-only (get-user-reputation (user principal))
-  (default-to u0 
-              (get reputation 
-                   (default-to 
-                    { syllabi-created: u0, total-upvotes: u0, total-downvotes: u0, 
-                      reputation: u0, followers: u0, total-earnings: u0 } 
-                    (map-get? creator-credits { creator: user }))))
+  (get reputation 
+       (default-to 
+        { syllabi-created: u0, total-upvotes: u0, total-downvotes: u0, 
+          reputation: u0, followers: u0, total-earnings: u0 } 
+        (map-get? creator-credits { creator: user })))
 )
 
 (define-read-only (get-category (category-id uint))
